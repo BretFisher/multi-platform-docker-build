@@ -1,4 +1,4 @@
-# Docker --platform translation to TARGETPLATFORM and TARGETARCH
+# Docker --platform translation example for TARGETPLATFORM
 
 Naming is hard. Having a consistent OS (kernel) and architecture naming scheme for building is harder. 
 
