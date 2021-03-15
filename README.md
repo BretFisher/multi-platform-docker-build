@@ -1,23 +1,35 @@
-# Docker --platform translation example for TARGETPLATFORM
+# WIP: Docker --platform translation example for TARGETPLATFORM
 
-Naming is hard. Having a consistent OS (kernel) and architecture naming scheme for building is harder. 
+Naming is hard. Having a consistent OS (kernel) and architecture naming scheme for building is harder.
 
-In Docker, our goal should be a single Dockerfile that can build for at least all Linux architectures, and eventually
-across many kernels (Linux/Windows/Darwin) too.
+**Goal**: In Docker, our goal should be a single Dockerfile that can build for multiple Linux architectures.
+A stretch-goal might be cross-OS (Windows Containers), but for now let's focus on the Linux kernel.
 
-Usually this problem rears its ugly head when you're trying to download pre-built binaries of various tools and 
-dependencies (GitHub, etc.). Download URL's are inconsistently named, and expect some sort of kernel and architecture
-combo in the file name. No one seems to agree on common naming.
+Turns out this might be harder then you're expecting.
 
-Using `uname -m` won't work for architecture, as the name changes based on where it's running. For example, with 
-arm64 (v8) architecture, it might say arm64, or aarch64. 
+Docker has BuildKit which makes this **much easier** with the `docker buildx build --platform` option, and
+combined with the `ARG TARGETPLATFORM` gets us much closer to our goal. See the docs on
+[multi-platform building](https://docs.docker.com/buildx/working-with-buildx/#build-multi-platform-images)
+and the [automatic platform ARGs](https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope).
 
-There's also the complexity that a device might have one architecture hardware (arm64) but run a different kernel 
-(arm/v7 32-Bit). In this case you'll need to download the v7 binary.
+## The problem with downloading prebuilt binaries
 
-The containerd project has 
+There are still inconsistancies we need to deal with. This problem rears its ugly head when you're
+trying to download pre-built binaries of various tools and dependencies (GitHub, etc.) that don't use
+a package manager (apt, yum, brew, apk, etc.).
+Download URL's are inconsistently named, and expect some sort of kernel and architecture combo in the file name.
+No one seems to agree on common file naming.
+
+Using `uname -m` won't work for all architectures, as the name changes based on where it's running. For example, with 
+arm64 (v8) architecture, it might say arm64, or aarch64. In older arm devices it'll say armv71 even though you
+might want arm/v6.
+
+There's also the complexity that a device might have one architecture hardware (arm64) but run a different kernel (arm/v7 32-Bit).
+
+The containerd project has
 [created their own conversion table](https://github.com/containerd/containerd/blob/master/platforms/platforms.go#L88-L94),
-which I'm commenting on here
+which I'm commenting on here. This is similar to (but not exactly) what `ARG TARGETPLATFORM` gives us:
+
 ```
 //   Value    Normalized
 //   aarch64  arm64      # the latest v8 arm architecture. Used on Apple M1, AWS Graviton, and Raspberry Pi 3's and 4's
@@ -27,17 +39,22 @@ which I'm commenting on here
 //   x86_64   amd64      # all modern Intel-compatible x84 64-Bit architectures
 //   x86-64   amd64      # same
 ```
-So that's a start. BuildKit, which uses contained to run the containers, seems to do additional conversion, as
-you'll see in the testing below.
 
-For now, if we wanted to have a single Dockerfile build across x86-64, ARM 64-Bit, and ARM 32-Bit, we can use BuildKit
-with the `TARGETPLATFORM` argument to get a more consistent environment variable in our `RUN` commands for predictable use, but it's not perfect. We'll still need to convert that output to what our RUN commands need.
+So that's a start. But BuildKit seems to do additional conversion, as you'll see in the testing below.
+
+## Recommended approach for curl and wget commands in multi-platform Dockerfiles
+
+If we wanted to have a single Dockerfile build across (at minimum) x86-64, ARM 64-Bit, and ARM 32-Bit,
+we can use BuildKit with the `TARGETPLATFORM` argument to get a more consistent environment variable in our
+`RUN` commands, but it's not perfect. We'll still need to convert that output to what our `RUN` commands need.
 
 `TARGETPLATFORM` is actually the combo of `TARGETOS`/`TARGETARCH`/`TARGETVARIANT` so in some cases you could use
-those to help the situation, but as you can see below, the arm/v6 vs arm/v7 vs arm/v8 below can make all this tricky.
-`TARGETARCH` is to general, and `ARGETVARIANT` may be blank (in the case of `arm64`).
+those to help the situation, but as you can see below, the arm/v6 vs arm/v7 vs arm/v8 output can make all this
+tricky. `TARGETARCH` is to general, and `ARGETVARIANT` may be blank (in the case of `arm64`).
 
-For this Dockerfile:
+So when I use `docker buildx build --platform`, what do I see inside the BuildKit environment?
+
+Here's my results for this Dockerfile:
 
 ```Dockerfile
 FROM busybox
@@ -51,7 +68,7 @@ RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
     && printf "and  uname -m : " && uname -mm
 ```
 
-Here are builds and results when using the command `docker buildx build --progress=plain --platform=<VALUE> .`:
+Here are the results when using the command `docker buildx build --progress=plain --platform=<VALUE> .`:
 
 1. `--platform=linux/amd64` and `--platform=linux/x86-64` and `--platform=linux/x86_64`
 
@@ -61,7 +78,7 @@ Here are builds and results when using the command `docker buildx build --progre
     and  uname -m : x86_64
     ```
 
-2. `--platform=linux/arm64` NOTE: TARGETVARIANT is blank
+2. `--platform=linux/arm64` **TARGETVARIANT is blank**
 
     ```
     I'm building for TARGETPLATFORM=linux/arm64, TARGETARCH=arm64, TARGETVARIANT=
@@ -69,7 +86,7 @@ Here are builds and results when using the command `docker buildx build --progre
     and  uname -m : aarch64
     ```
 
-3. `--platform=linux/arm/v8` NOTE: I'd think this would be an alias to arm64, but it returns weird results
+3. `--platform=linux/arm/v8` **Don't use this. It builds but is inconsistent.** I'd think this would be an alias to arm64, but it returns weird results (uname thinks it's 32bit, TARGETARCH is not arm64)
 
     ```
     I'm building for TARGETPLATFORM=linux/arm/v8, TARGETARCH=arm, TARGETVARIANT=v8
@@ -103,7 +120,7 @@ Here are builds and results when using the command `docker buildx build --progre
 
 ## So what then, how do we proceed?
 
-### Know what platforms you can build
+### Know what platforms you can build in your Docker Engine
 
 First, you'll need to know what platforms your Docker Engine can build. Docker can support multi-platform builds with the `buildx` command. The [README is great](https://github.com/docker/buildx#building-multi-platform-images). By default it only supports the platform that Docker Engine (daemon) is running on, but if QEMU is installed, it can emulate many others. You can see the list it's currently enabled for with the `docker buildx inspect --bootstrap` command.  
 
@@ -129,17 +146,27 @@ QEMU isn't setup so the list is much shorter:
 
 ### Add Dockerfile logic to detect the platform it needs to use
 
-Let's use [tini](https://github.com/krallin/tini) as an example of how to ensure that a single Dockerfile and download the correct tini build into our container image 
-for Linux on amd64, arm64, arm/v7, arm/v6, and i386. We'll use a separate build-stage, evaluate the
-`TARGETPLATFORM`, and manually convert the value (via `sh case` statement) to what the specific binary URL needs.
+Let's use [tini](https://github.com/krallin/tini) as an example of how to ensure that a single Dockerfile and download the correct tini build into our container image for Linux on amd64, arm64, arm/v7, arm/v6, and i386.
+We'll use a separate build-stage, evaluate the `TARGETPLATFORM`, and manually convert the value 
+(via `sh case` statement) to what the specific binary URL needs.
 
 This was inspired by @crazy-max in his [docker-in-docker Dockerfile](https://github.com/crazy-max/docker-docker/blob/1b0a1260bdbcb5931e07b5bc21e7bb0991101fda/Dockerfile-20.10#L12-L18).
-FROM busybox as tini-binaries
-RUN mkdir -p /opt/tini \
- && case ${TARGETPLATFORM} in \
-         linux/amd64)  curl -L https://...amd64.bin -o /binary/tini;; \
-         linux/arm64)  curl -L https://...arm64.bin -o /binary/tini;; \
-    esac
-...
-FROM base as release
-COPY --from tini-binaries /binary/tini /usr/local/bin/tini
+
+See the full Dockerfile here: [example-tini\Dockerfile](example-tini\Dockerfile)
+
+```Dockerfile
+FROM --platform=${BUILDPLATFORM} alpine as tini-binary
+ENV TINI_VERSION=v0.19.0
+ARG TARGETPLATFORM
+RUN case ${TARGETPLATFORM} in \
+         "linux/amd64")  TINI_ARCH=amd64  ;; \
+         "linux/arm64")  TINI_ARCH=arm64  ;; \
+         "linux/arm/v7") TINI_ARCH=armhf  ;; \
+         "linux/arm/v6") TINI_ARCH=armel  ;; \
+         "linux/386")    TINI_ARCH=i386   ;; \
+    esac \
+ && wget -q https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TINI_ARCH} -O /tini \
+ && chmod +x /tini
+ ```
+
+ **MORE TO COME, WIP**
