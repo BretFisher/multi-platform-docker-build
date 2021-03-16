@@ -12,9 +12,9 @@ combined with the `ARG TARGETPLATFORM` gets us much closer to our goal. See the 
 [multi-platform building](https://docs.docker.com/buildx/working-with-buildx/#build-multi-platform-images)
 and the [automatic platform ARGs](https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope).
 
-## The problem with downloading prebuilt binaries
+## The problem with downloading binaries in Dockerfiles
 
-There are still inconsistancies we need to deal with. This problem rears its ugly head when you're
+There are still inconsistencies we need to deal with. This problem rears its ugly head when you're
 trying to download pre-built binaries of various tools and dependencies (GitHub, etc.) that don't use
 a package manager (apt, yum, brew, apk, etc.).
 Download URL's are inconsistently named, and expect some sort of kernel and architecture combo in the file name.
@@ -78,7 +78,7 @@ Here are the results when using the command `docker buildx build --progress=plai
     and  uname -m : x86_64
     ```
 
-2. `--platform=linux/arm64` **TARGETVARIANT is blank**
+2. `--platform=linux/arm64` and `--platform=linux/arm64/v8` **TARGETVARIANT is blank**
 
     ```
     I'm building for TARGETPLATFORM=linux/arm64, TARGETARCH=arm64, TARGETVARIANT=
@@ -168,5 +168,10 @@ RUN case ${TARGETPLATFORM} in \
  && wget -q https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TINI_ARCH} -O /tini \
  && chmod +x /tini
  ```
+
+ ## Further Reading
+
+-  Docker Blog from Adrian Mouat on multi-platform Docker builds: https://www.docker.com/blog/multi-platform-docker-builds/
+
 
  **MORE TO COME, WIP**
