@@ -174,4 +174,8 @@ RUN case ${TARGETPLATFORM} in \
 -  Docker Blog from Adrian Mouat on multi-platform Docker builds: https://www.docker.com/blog/multi-platform-docker-builds/
 
 
- **MORE TO COME, WIP**
+##  **MORE TO COME, WIP**
+
+- [ ] Background on manifests, multi-architecture repos
+- [ ] Using third-party tools like `regctl` to make your life easier (i.e. `regctl image manifest --list golang`)
+- [ ] Breakdown the three parts of the platform ARG better
