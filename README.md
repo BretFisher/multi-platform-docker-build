@@ -20,7 +20,7 @@ a package manager (apt, yum, brew, apk, etc.).
 Download URL's are inconsistently named, and expect some sort of kernel and architecture combo in the file name.
 No one seems to agree on common file naming.
 
-Using `uname -m` won't work for all architectures, as the name changes based on where it's running. For example, with 
+Using `uname -m` won't work for all architectures, as the name changes based on where it's running. For example, with
 arm64 (v8) architecture, it might say arm64, or aarch64. In older arm devices it'll say armv71 even though you
 might want arm/v6.
 
@@ -30,7 +30,7 @@ The containerd project has
 [created their own conversion table](https://github.com/containerd/containerd/blob/master/platforms/platforms.go#L88-L94),
 which I'm commenting on here. This is similar to (but not exactly) what `ARG TARGETPLATFORM` gives us:
 
-```
+```bash
 //   Value    Normalized
 //   aarch64  arm64      # the latest v8 arm architecture. Used on Apple M1, AWS Graviton, and Raspberry Pi 3's and 4's
 //   armhf    arm        # 32-bit v7 architecture. Used in Raspberry Pi 3 and  Pi 4 when 32bit Raspbian Linux is used
@@ -72,7 +72,7 @@ Here are the results when using the command `docker buildx build --progress=plai
 
 1. `--platform=linux/amd64` and `--platform=linux/x86-64` and `--platform=linux/x86_64`
 
-    ```
+    ```text
     I'm building for TARGETPLATFORM=linux/amd64, TARGETARCH=amd64, TARGETVARIANT=
     With uname -s : Linux
     and  uname -m : x86_64
@@ -80,7 +80,7 @@ Here are the results when using the command `docker buildx build --progress=plai
 
 2. `--platform=linux/arm64` and `--platform=linux/arm64/v8` **TARGETVARIANT is blank**
 
-    ```
+    ```text
     I'm building for TARGETPLATFORM=linux/arm64, TARGETARCH=arm64, TARGETVARIANT=
     With uname -s : Linux
     and  uname -m : aarch64
@@ -88,7 +88,7 @@ Here are the results when using the command `docker buildx build --progress=plai
 
 3. `--platform=linux/arm/v8` **Don't use this. It builds but is inconsistent.** I'd think this would be an alias to arm64, but it returns weird results (uname thinks it's 32bit, TARGETARCH is not arm64)
 
-    ```
+    ```text
     I'm building for TARGETPLATFORM=linux/arm/v8, TARGETARCH=arm, TARGETVARIANT=v8
     With uname -s : Linux
     and  uname -m : armv7l
@@ -96,7 +96,7 @@ Here are the results when using the command `docker buildx build --progress=plai
 
 4. `--platform=linux/arm` and `--platform=linux/arm/v7` and `--platform=linux/armhf`
 
-    ```
+    ```text
     I'm building for TARGETPLATFORM=linux/arm/v7, TARGETARCH=arm, TARGETVARIANT=v7
     With uname -s : Linux
     and  uname -m : armv7l
@@ -104,15 +104,15 @@ Here are the results when using the command `docker buildx build --progress=plai
 
 5. `--platform=linux/arm/v6` and `--platform=linux/armel`
 
-    ```
+    ```text
     I'm building for TARGETPLATFORM=linux/arm/v6, TARGETARCH=arm, TARGETVARIANT=v6
     With uname -s : Linux
     and  uname -m : armv7l
     ```
 
-4. `--platform=linux/i386` and `--platform=linux/386`
+6. `--platform=linux/i386` and `--platform=linux/386`
 
-    ```
+    ```text
     I'm building for TARGETPLATFORM=linux/386, TARGETARCH=386, TARGETVARIANT=
     With uname -s : Linux
     and  uname -m : i686
@@ -147,7 +147,7 @@ QEMU isn't setup so the list is much shorter:
 ### Add Dockerfile logic to detect the platform it needs to use
 
 Let's use [tini](https://github.com/krallin/tini) as an example of how to ensure that a single Dockerfile and download the correct tini build into our container image for Linux on amd64, arm64, arm/v7, arm/v6, and i386.
-We'll use a separate build-stage, evaluate the `TARGETPLATFORM`, and manually convert the value 
+We'll use a separate build-stage, evaluate the `TARGETPLATFORM`, and manually convert the value
 (via `sh case` statement) to what the specific binary URL needs.
 
 This was inspired by @crazy-max in his [docker-in-docker Dockerfile](https://github.com/crazy-max/docker-docker/blob/1b0a1260bdbcb5931e07b5bc21e7bb0991101fda/Dockerfile-20.10#L12-L18).
@@ -169,12 +169,11 @@ RUN case ${TARGETPLATFORM} in \
  && chmod +x /tini
  ```
 
- ## Further Reading
+## Further Reading
 
--  Docker Blog from Adrian Mouat on multi-platform Docker builds: https://www.docker.com/blog/multi-platform-docker-builds/
+Docker Blog from Adrian Mouat on [multi-platform Docker builds](https://www.docker.com/blog/multi-platform-docker-builds/).
 
-
-##  **MORE TO COME, WIP**
+## **MORE TO COME, WIP**
 
 - [ ] Background on manifests, multi-architecture repos
 - [ ] Using third-party tools like `regctl` to make your life easier (i.e. `regctl image manifest --list golang`)
