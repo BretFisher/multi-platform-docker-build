@@ -17,7 +17,7 @@ and the [automatic platform ARGs](https://docs.docker.com/engine/reference/build
 There are still inconsistencies we need to deal with. This problem rears its ugly head when you're
 trying to download pre-built binaries of various tools and dependencies (GitHub, etc.) that don't use
 a package manager (apt, yum, brew, apk, etc.).
-Download URL's are inconsistently named, and expect some sort of kernel and architecture combo in the file name.
+Download URLs are inconsistently named, and expect some sort of kernel and architecture combo in the file name.
 No one seems to agree on common file naming.
 
 Using `uname -m` won't work for all architectures, as the name changes based on where it's running. For example, with
@@ -86,7 +86,8 @@ Here are the results when using the command `docker buildx build --progress=plai
     and  uname -m : aarch64
     ```
 
-3. `--platform=linux/arm/v8` **Don't use this. It builds but is inconsistent.** I'd think this would be an alias to arm64, but it returns weird results (uname thinks it's 32bit, TARGETARCH is not arm64)
+3. `--platform=linux/arm/v8` **Don't use this. It builds but is inconsistent.**
+I'd think this would be an alias to arm64, but it returns weird results (uname thinks it's 32bit, TARGETARCH is not arm64)
 
     ```text
     I'm building for TARGETPLATFORM=linux/arm/v8, TARGETARCH=arm, TARGETVARIANT=v8
@@ -122,7 +123,11 @@ Here are the results when using the command `docker buildx build --progress=plai
 
 ### Know what platforms you can build in your Docker Engine
 
-First, you'll need to know what platforms your Docker Engine can build. Docker can support multi-platform builds with the `buildx` command. The [README is great](https://github.com/docker/buildx#building-multi-platform-images). By default it only supports the platform that Docker Engine (daemon) is running on, but if QEMU is installed, it can emulate many others. You can see the list it's currently enabled for with the `docker buildx inspect --bootstrap` command.  
+First, you'll need to know what platforms your Docker Engine can build.
+Docker can support multi-platform builds with the `buildx` command.
+The [README is great](https://github.com/docker/buildx#building-multi-platform-images).
+By default it only supports the platform that Docker Engine (daemon) is running on, but if QEMU is installed, it can emulate many others.
+You can see the list it's currently enabled for with the `docker buildx inspect --bootstrap` command.  
 
 For example, this is what I see in Docker Desktop on a Intel-based Mac and a Windows 10 with WSL2,
 with `linux/amd64` being the native platform, and the rest using QEMU emulation:
@@ -146,7 +151,8 @@ QEMU isn't setup so the list is much shorter:
 
 ### Add Dockerfile logic to detect the platform it needs to use
 
-Let's use [tini](https://github.com/krallin/tini) as an example of how to ensure that a single Dockerfile and download the correct tini build into our container image for Linux on amd64, arm64, arm/v7, arm/v6, and i386.
+Let's use [tini](https://github.com/krallin/tini) as an example of how to ensure that a single
+Dockerfile and download the correct tini build into our container image for Linux on amd64, arm64, arm/v7, arm/v6, and i386.
 We'll use a separate build-stage, evaluate the `TARGETPLATFORM`, and manually convert the value
 (via `sh case` statement) to what the specific binary URL needs.
 
