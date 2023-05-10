@@ -50,7 +50,7 @@ we can use BuildKit with the `TARGETPLATFORM` argument to get a more consistent 
 
 `TARGETPLATFORM` is actually the combo of `TARGETOS`/`TARGETARCH`/`TARGETVARIANT` so in some cases you could use
 those to help the situation, but as you can see below, the arm/v6 vs arm/v7 vs arm/v8 output can make all this
-tricky. `TARGETARCH` is too general, and `TARGEVARIANT` may be blank (in the case of `arm64`).
+tricky. `TARGETARCH` is too general, and `TARGETVARIANT` may be blank (in the case of `arm64`).
 
 So when I use `docker buildx build --platform`, what do I see inside the BuildKit environment?
 
